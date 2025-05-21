@@ -4,8 +4,8 @@ use serde::Deserialize;
 pub struct TurnstileRes{
   pub success: bool,
 
-  #[serde(rename = "error-codes")]
-  pub error_codes: Vec<String>
+  // #[serde(rename = "error-codes")]
+  // pub error_codes: Vec<String>
 }
 
 #[derive(Debug)]
