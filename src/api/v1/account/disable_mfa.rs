@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
 use serde_json::json;
+use bson::doc;
 
 use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, token } };
 
-pub async fn get( 
+pub async fn delete( 
   headers: HeaderMap,
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
@@ -17,7 +18,7 @@ pub async fn get(
 
   let token = cookies.get("token").unwrap().clone();
 
-  let identity = token::identify(token, app).await;
+  let identity = token::identify(token, app.clone()).await;
   if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
 
   let ( user, session ) = identity.unwrap();
@@ -35,19 +36,34 @@ pub async fn get(
     ))
   }
 
-  Ok((
-    StatusCode::OK,
-    [
-      ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
-      ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
-      ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
-    ],
-    Json(json!({ 
-      "ok": true,
-      "id": user._id.to_hex(),
-      "username": user.username,
-      "email": user.email,
-      "avatar": user.avatar
-    }))
-  ))
+  if user.has_mfa{
+    app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
+      "has_mfa": false,
+      "mfa_string": ""
+    } }).await.unwrap();
+
+    Ok((
+      StatusCode::OK,
+      [
+        ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
+        ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
+        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+      ],
+      Json(json!({
+        "ok": true
+      }))
+    ))
+  } else{
+    Ok((
+      StatusCode::OK,
+      [
+        ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
+        ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
+        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+      ],
+      Json(json!({
+        "ok": false
+      }))
+    ))
+  }
 }

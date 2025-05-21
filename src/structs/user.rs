@@ -1,6 +1,12 @@
 use bson::oid::ObjectId;
 use serde::{ Deserialize, Serialize };
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct UserEmailUpdate{
+  pub email: String,
+  pub verification_code: String
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User{
   pub _id: ObjectId,
@@ -8,10 +14,10 @@ pub struct User{
   pub username: String,
   pub password: String,
 
-  pub last_username_change: u64,
-  pub last_password_change: u64,
-  pub last_email_change: u64,
-  pub last_avatar_change: u64,
+  pub last_username_change: i64,
+  pub last_password_change: i64,
+  pub last_email_change: i64,
+  pub last_avatar_change: i64,
 
   pub password_change_token: Option<String>,
 
@@ -22,6 +28,7 @@ pub struct User{
   pub email: String,
   pub email_verification_code: String,
   pub email_verified: bool,
+  pub email_update: UserEmailUpdate,
 
   pub avatar: String,
 

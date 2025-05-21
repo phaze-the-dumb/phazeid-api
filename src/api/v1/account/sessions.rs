@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
 use serde_json::json;
+use bson::doc;
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, token } };
+use crate::{ apphandler::AppHandler, structs::{apierror::APIError, session::PublicSession}, util::{ cookies, cors::cors, token } };
 
 pub async fn get( 
   headers: HeaderMap,
@@ -17,7 +18,7 @@ pub async fn get(
 
   let token = cookies.get("token").unwrap().clone();
 
-  let identity = token::identify(token, app).await;
+  let identity = token::identify(token, app.clone()).await;
   if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
 
   let ( user, session ) = identity.unwrap();
@@ -35,6 +36,16 @@ pub async fn get(
     ))
   }
 
+  let mut cursor = app.sessions.find(doc! { "user_id": user._id }).await.unwrap();
+  let mut sessions = Vec::new();
+
+  while cursor.advance().await.unwrap() {
+    let s = cursor.deserialize_current().unwrap();
+    let id = s._id.clone();
+    
+    sessions.push(PublicSession::from_session(s, id == session._id)); 
+  }
+
   Ok((
     StatusCode::OK,
     [
@@ -44,10 +55,7 @@ pub async fn get(
     ],
     Json(json!({ 
       "ok": true,
-      "id": user._id.to_hex(),
-      "username": user.username,
-      "email": user.email,
-      "avatar": user.avatar
+      "sessions": sessions
     }))
   ))
 }

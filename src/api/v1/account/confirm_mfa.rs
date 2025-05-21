@@ -1,13 +1,22 @@
 use std::sync::Arc;
 
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
+use serde::Deserialize;
 use serde_json::json;
+use bson::doc;
+use totp_rs::{Algorithm, Secret, TOTP};
 
 use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, token } };
 
-pub async fn get( 
+#[derive(Deserialize)]
+pub struct ConfirmMfaRequest{
+  pub code: String
+}
+
+pub async fn put( 
   headers: HeaderMap,
-  Extension(app): Extension<Arc<AppHandler>>
+  Extension(app): Extension<Arc<AppHandler>>,
+  Json(body): Json<ConfirmMfaRequest>,
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
   if cookies.is_none() { return Err(APIError::default()) }
@@ -17,7 +26,7 @@ pub async fn get(
 
   let token = cookies.get("token").unwrap().clone();
 
-  let identity = token::identify(token, app).await;
+  let identity = token::identify(token, app.clone()).await;
   if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
 
   let ( user, session ) = identity.unwrap();
@@ -35,6 +44,23 @@ pub async fn get(
     ))
   }
 
+  let account_secret = Secret::Raw(user.mfa_string.unwrap().as_bytes().to_vec());
+
+  let totp = TOTP::new(
+    Algorithm::SHA1, 
+    6, 1, 30, 
+    account_secret.to_bytes().unwrap(), 
+    Some("Phaze ID".to_string()), 
+    user.username
+  ).unwrap();
+
+  let valid = totp.check_current(&body.code).unwrap();
+  if !valid { return Err(APIError::new(500, "Invalid Code".into())) }
+
+  app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
+    "has_mfa": true
+  } }).await.unwrap();
+
   Ok((
     StatusCode::OK,
     [
@@ -43,11 +69,7 @@ pub async fn get(
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
     Json(json!({ 
-      "ok": true,
-      "id": user._id.to_hex(),
-      "username": user.username,
-      "email": user.email,
-      "avatar": user.avatar
+      "ok": true
     }))
   ))
 }

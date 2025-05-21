@@ -10,7 +10,9 @@ pub async fn get(
   Query(query): Query<Value>,
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
-  let identity = token::identify(query["token"].as_str().unwrap().to_owned(), app).await;
+  let token = query["token"].as_str().unwrap().to_owned();
+
+  let identity = token::identify(token.clone(), app).await;
   if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
 
   let ( user, session ) = identity.unwrap();
@@ -21,7 +23,8 @@ pub async fn get(
       [
         ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
         ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
-        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() ),
+        ( header::ACCEPT, "*".into() )
       ],
       Json(json!({ "ok": true, "procedure": "VERIFY_EMAIL", "endpoint": "/verify-email" }))
     ))
@@ -33,7 +36,8 @@ pub async fn get(
       [
         ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
         ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
-        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() ),
+        ( header::ACCEPT, "*".into() )
       ],
       Json(json!({ "ok": true, "procedure": "VERIFY_MFA", "endpoint": "/verify-mfa" }))
     ))
@@ -45,7 +49,8 @@ pub async fn get(
       [
         ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
         ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
-        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() ),
+        ( header::ACCEPT, "*".into() )
       ],
       Json(json!({ "ok": true, "procedure": "VERIFY", "endpoint": "/verify" }))
     ))
@@ -55,9 +60,10 @@ pub async fn get(
     StatusCode::OK,
     [
       ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
-      ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
+      ( header::ACCESS_CONTROL_ALLOW_METHODS, "POST".into() ),
+      ( header::SET_COOKIE, format!("token={}; Max-Age=604800; Domain=localhost; Path=/api; HttpOnly; Secure; SameSite=Strict", token) ),
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
-    Json(json!({ "ok": true, "procedure": "NONE", "endpoint": "/" }))
+    Json(json!({ "ok": true, "procedure": "NONE", "endpoint": query["next"].as_str().unwrap() }))
   ))
 }

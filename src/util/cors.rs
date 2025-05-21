@@ -2,16 +2,19 @@ use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse };
 
 const ALLOWED_ORIGINS: [ &'static str; 1 ] = [ "http://localhost:5173" ];
 
+pub const ORIGIN: &'static str = "http://localhost:5173";
+
 pub async fn options( headers: HeaderMap ) -> impl IntoResponse{
   let origin = headers.get("Origin").unwrap().to_str().unwrap();
+  let method = headers.get("Access-Control-Request-Method").unwrap().to_str().unwrap();
 
   if ALLOWED_ORIGINS.contains(&origin){
     (
       StatusCode::OK,
       [
         ( header::ACCESS_CONTROL_ALLOW_ORIGIN, origin.to_owned() ),
-        ( header::ACCESS_CONTROL_ALLOW_METHODS, "*".into() ),
-        ( header::ACCESS_CONTROL_ALLOW_HEADERS, "*".into() ),
+        ( header::ACCESS_CONTROL_ALLOW_METHODS, method.into() ),
+        ( header::ACCESS_CONTROL_ALLOW_HEADERS, "content-type".into() ),
         ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
       ],
       "200 OK"

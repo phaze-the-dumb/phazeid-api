@@ -4,6 +4,7 @@ use crate::{ apphandler::AppHandler, structs::{ session::Session, user::User } }
 use anyhow::anyhow;
 use argon2::{ password_hash::Encoding, Argon2, PasswordHash, PasswordVerifier };
 use bson::{ doc, oid::ObjectId };
+use chrono::Utc;
 use serde_json::{ json, Value };
 
 pub fn verified( user: &User, session: &Session ) -> anyhow::Result<(), Value> {
@@ -29,6 +30,12 @@ pub async fn identify( token: String, app: Arc<AppHandler> ) -> anyhow::Result<(
 
   if session.is_none(){ return Err(anyhow!("No session")) }
   let session = session.unwrap();
+
+  let now = Utc::now().timestamp();
+  if session.expires_on < now {
+    app.sessions.delete_many(doc! { "expires_on": { "$lt": now } }).await.unwrap();
+    return Err(anyhow!("Invalid session"))
+  }
 
   let argon2 = Argon2::default();
   if argon2.verify_password(token.as_bytes(), &PasswordHash::parse(&session.token, Encoding::B64).unwrap()).is_err()

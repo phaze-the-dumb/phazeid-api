@@ -1,12 +1,10 @@
 use axum::{ extract::{ ws::{ Message, WebSocket }, WebSocketUpgrade }, http::HeaderMap, response::IntoResponse, Extension };
 use base64::prelude::*;
-use bson::{doc, oid::ObjectId};
-use regex::Regex;
 use rsa::{ pkcs8::{DecodePublicKey, EncodePublicKey}, RsaPrivateKey, RsaPublicKey };
 use serde_json::json;
 use std::{ env, sync::Arc };
 
-use crate::{ apphandler::AppHandler, structs::{tunnel::{ ClientCommand, TurnstileRes }, user::User}, util::{ decrypt::decrypt, email, encrypt::encrypt, login::try_login, signup::try_signup } };
+use crate::{ apphandler::AppHandler, structs::tunnel::{ ClientCommand, TurnstileRes }, util::{ change_password::try_change_password, cookies, decrypt::decrypt, encrypt::encrypt, login::try_login, signup::try_signup } };
 
 pub async fn get(
   headers: HeaderMap,
@@ -95,6 +93,25 @@ async fn handle_socket( mut ws: WebSocket, app: Arc<AppHandler>, headers: Header
         //headers.get("cf-connecting-ip").unwrap().to_str().unwrap(), 
         "1.1.1.1", // Will replace once in prod, just for testing.
         username, password, email, &remote_pub_key, &mut ws, app.clone()
+      ).await.unwrap();
+    },
+    "EP" => {
+      let cookies = headers.get("cookie");
+      if cookies.is_none() { return; }
+      
+      let cookies = cookies.unwrap().to_str().unwrap().to_owned();
+      let cookies = cookies::parse(cookies);
+
+      if cookies.get("token").is_none(){ return; }
+
+      let data = val.data.split_at(172);
+
+      let new_password = decrypt(data.0.to_owned(), &priv_key).unwrap();
+      let old_password = decrypt(data.1.to_owned(), &priv_key).unwrap();
+
+      try_change_password(
+        new_password, old_password, cookies.get("token").unwrap().clone(), 
+        &remote_pub_key, &mut ws, app.clone()
       ).await.unwrap();
     },
     _ => { return; }

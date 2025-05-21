@@ -16,10 +16,12 @@ serde = "1.0.217"
 rsa = "0.9.8"
 rand = "0.8.0"
 base64 = "0.22.1"
-axum = { version ="0.8.3", features = [ "ws", "macros" ] }
-tokio-tungstenite = "0.26.0"
+axum = { version ="0.8.3", features = [ "ws", "macros", "multipart" ] }
 sha2 = "0.10.8"
 regex = "1.11.1"
 chrono = "0.4.40"
 mail-send = "0.5.0"
 argon2 = "0.5.3"
+tokio-util = "0.7.15"
+rust-s3 = "0.35.1"
+totp-rs = { version = "5.7.0", features = [ "qr" ] }

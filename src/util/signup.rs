@@ -3,15 +3,17 @@ use std::{env, fs, sync::Arc};
 use argon2::{ password_hash::SaltString, Argon2, PasswordHasher };
 use axum::extract::ws::{ Message, WebSocket };
 use chrono::Utc;
-use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
+use rand::{distributions::Alphanumeric, rngs::OsRng, seq::SliceRandom, Rng};
 use regex::Regex;
 use rsa::RsaPublicKey;
 use bson::{ doc, oid::ObjectId };
 use anyhow::bail;
 
-use crate::{ apphandler::AppHandler, structs::{ ipinfo::IPInfo, session::Session, user::User } };
+use crate::{ apphandler::AppHandler, structs::{ ipinfo::IPInfo, session::Session, user::{User, UserEmailUpdate} } };
 
-use super::{ avatar, email, encrypt::encrypt };
+use super::{ email, encrypt::encrypt };
+
+const DEFAULT_AVIS: [&str; 1] = [ "default" ];
 
 pub async fn try_signup( ip: &str, username: String, password: String, email: String, remote_pub_key: &RsaPublicKey, ws: &mut WebSocket, app: Arc<AppHandler> ) -> anyhow::Result<User>{
   if
@@ -76,8 +78,9 @@ pub async fn try_signup( ip: &str, username: String, password: String, email: St
     email,
     email_verification_code: rand::thread_rng().sample_iter(&Alphanumeric).take(6).map(char::from).collect(),
     email_verified: false,
+    email_update: UserEmailUpdate::default(),
 
-    avatar: ObjectId::new().to_hex(),
+    avatar: DEFAULT_AVIS.choose(&mut rand::thread_rng()).unwrap().to_string(),
 
     has_mfa: false,
     mfa_string: None,
@@ -98,7 +101,7 @@ pub async fn try_signup( ip: &str, username: String, password: String, email: St
     token: argon2.hash_password(token.as_bytes(), &salt).unwrap().to_string(),
 
     created_on: now,
-    expires_on: now + 900,
+    expires_on: now + 2629800, // Session expires in a month
 
     loc: ip_info,
 
@@ -115,8 +118,6 @@ pub async fn try_signup( ip: &str, username: String, password: String, email: St
       .replace("{{USERNAME}}", &user.username)
       .replace("{{CODE}}", &user.email_verification_code)
   ).await.unwrap();
-
-  avatar::generate_avi(&user.username, format!("{}/{}", user._id, user.avatar)).unwrap();
 
   app.users.insert_one(&user).await.unwrap();
   app.sessions.insert_one(&session).await.unwrap();

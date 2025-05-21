@@ -3,3 +3,4 @@ pub mod auth;
 pub mod verify;
 pub mod verification;
 pub mod profile;
+pub mod account;
