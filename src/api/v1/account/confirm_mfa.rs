@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
+use argon2::{ password_hash::SaltString, Argon2, PasswordHasher };
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
+use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use serde::Deserialize;
 use serde_json::json;
 use bson::doc;
@@ -57,8 +59,23 @@ pub async fn put(
   let valid = totp.check_current(&body.code).unwrap();
   if !valid { return Err(APIError::new(500, "Invalid Code".into())) }
 
+  let mut raw_codes = vec![];
+  let mut codes = vec![];
+
+  let argon2 = Argon2::default();
+
+  for _i in 0..6 {
+    let raw_code: String = rand::thread_rng().sample_iter(&Alphanumeric).take(8).map(char::from).collect();
+    raw_codes.push(raw_code.clone());
+
+    let salt = SaltString::generate(&mut OsRng);
+    let hash_code = argon2.hash_password(raw_code.as_bytes(), &salt).unwrap().to_string();
+    codes.push(hash_code);
+  }
+
   app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
-    "has_mfa": true
+    "has_mfa": true,
+    "backup_codes": codes
   } }).await.unwrap();
 
   Ok((
@@ -69,7 +86,8 @@ pub async fn put(
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
     Json(json!({ 
-      "ok": true
+      "ok": true,
+      "backup_codes": raw_codes
     }))
   ))
 }

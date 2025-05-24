@@ -48,3 +48,32 @@ pub async fn identify( token: String, app: Arc<AppHandler> ) -> anyhow::Result<(
 
   Ok(( user, session ))
 }
+
+pub async fn identify_reset( token: String, app: Arc<AppHandler> ) -> anyhow::Result<User> {
+  if token.len() < 64 { return Err(anyhow!("Token is too short")) }
+
+  let ( token, user_id ) = token.split_at(64);
+  let user_id = ObjectId::from_str(user_id);
+
+  if user_id.is_err(){ return Err(anyhow!("Invalid token ID")) }
+  let user_id = user_id.unwrap();
+
+  let user = app.users.find_one(doc! { "_id": user_id }).await.unwrap();
+
+  if user.is_none(){ return Err(anyhow!("No session")) }
+  let user = user.unwrap();
+
+  if user.password_change_token.is_none(){ return Err(anyhow!("No reset available")); }
+
+  let now = Utc::now().timestamp();
+  if user.password_change_token_generated + 900 < now {
+    app.users.update_one(doc! { "_id": user._id }, doc! { "$set": { "password_change_token": None::<String> } }).await.unwrap();
+    return Err(anyhow!("Invalid session"))
+  }
+
+  let argon2 = Argon2::default();
+  if argon2.verify_password(token.as_bytes(), &PasswordHash::parse(&user.password_change_token.clone().unwrap(), Encoding::B64).unwrap()).is_err()
+    { return Err(anyhow!("Invalid session")) }
+
+  Ok(user)
+}

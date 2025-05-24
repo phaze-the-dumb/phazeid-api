@@ -2,5 +2,5 @@ x - 2FA Authentication
 o - OAuth ( Design / Implement )
 o - Patreon
 o - Backup MFA Codes
-o - Password Resetting
+x - Password Resetting
 o - Detect suspicious traffic

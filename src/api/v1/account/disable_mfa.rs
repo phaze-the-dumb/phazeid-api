@@ -39,7 +39,8 @@ pub async fn delete(
   if user.has_mfa{
     app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
       "has_mfa": false,
-      "mfa_string": ""
+      "mfa_string": "",
+      "backup_codes": Vec::<String>::new()
     } }).await.unwrap();
 
     Ok((

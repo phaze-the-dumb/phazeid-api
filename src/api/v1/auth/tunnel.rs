@@ -4,7 +4,7 @@ use rsa::{ pkcs8::{DecodePublicKey, EncodePublicKey}, RsaPrivateKey, RsaPublicKe
 use serde_json::json;
 use std::{ env, sync::Arc };
 
-use crate::{ apphandler::AppHandler, structs::tunnel::{ ClientCommand, TurnstileRes }, util::{ change_password::try_change_password, cookies, decrypt::decrypt, encrypt::encrypt, login::try_login, signup::try_signup } };
+use crate::{ apphandler::AppHandler, structs::tunnel::{ ClientCommand, TurnstileRes }, util::{ change_password::{try_change_password, try_change_password_without_account, try_reset_password}, cookies, decrypt::decrypt, encrypt::encrypt, login::try_login, signup::try_signup } };
 
 pub async fn get(
   headers: HeaderMap,
@@ -114,6 +114,22 @@ async fn handle_socket( mut ws: WebSocket, app: Arc<AppHandler>, headers: Header
         &remote_pub_key, &mut ws, app.clone()
       ).await.unwrap();
     },
+    "RP" => {
+      let email = decrypt(val.data.to_owned(), &priv_key).unwrap();
+      
+      try_reset_password(email, &remote_pub_key, &mut ws, app).await.unwrap();
+    },
+    "NP" => {
+      let data = val.data.split_at(88);
+
+      let token = data.0.to_owned();
+      let password = decrypt(data.1.to_owned(), &priv_key).unwrap();
+
+      try_change_password_without_account(
+        password, token, &remote_pub_key,
+        &mut ws, app.clone()
+      ).await.unwrap();
+    }
     _ => { return; }
   }
 }

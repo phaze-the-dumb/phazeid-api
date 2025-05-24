@@ -70,6 +70,7 @@ pub async fn try_signup( ip: &str, username: String, password: String, email: St
     last_avatar_change: 0,
 
     password_change_token: None,
+    password_change_token_generated: 0,
 
     login_attempts: 0,
     account_locked: false,
@@ -84,6 +85,7 @@ pub async fn try_signup( ip: &str, username: String, password: String, email: St
 
     has_mfa: false,
     mfa_string: None,
+    backup_codes: vec![],
 
     roles: vec![],
 

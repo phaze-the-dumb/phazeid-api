@@ -20,6 +20,7 @@ pub struct User{
   pub last_avatar_change: i64,
 
   pub password_change_token: Option<String>,
+  pub password_change_token_generated: i64,
 
   pub login_attempts: u32,
   pub account_locked: bool,
@@ -34,6 +35,7 @@ pub struct User{
 
   pub has_mfa: bool,
   pub mfa_string: Option<String>,
+  pub backup_codes: Vec<String>,
 
   pub roles: Vec<String>,
   pub allowed_apps: Vec<String>,
