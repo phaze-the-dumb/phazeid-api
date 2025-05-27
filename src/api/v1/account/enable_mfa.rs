@@ -6,7 +6,7 @@ use serde_json::json;
 use bson::doc;
 use totp_rs::{Algorithm, Secret, TOTP};
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, token } };
+use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, encrypt, token } };
 
 pub async fn get( 
   headers: HeaderMap,
@@ -60,11 +60,13 @@ pub async fn get(
       6, 1, 30, 
       account_secret.to_bytes().unwrap(), 
       Some("Phaze ID".to_string()), 
-      user.username
+      user.username.clone()
     ).unwrap();
 
+    let encrypted = encrypt::encrypt_to_user(&user, raw_secret);
+
     app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
-      "mfa_string": raw_secret
+      "mfa_string": encrypted
     } }).await.unwrap();
 
     Ok((

@@ -87,7 +87,8 @@ pub async fn try_change_password_without_account( password: String, token: Strin
   let now = Utc::now().timestamp();
   app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
     "password": password_hash,
-    "last_password_change": now
+    "last_password_change": now,
+    "password_change_token": None::<String>
   } }).await.unwrap();
 
   ws.send(Message::Text(encrypt("0".into(), &remote_pub_key)?.into())).await?;

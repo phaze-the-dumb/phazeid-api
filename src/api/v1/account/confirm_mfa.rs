@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use argon2::{ password_hash::SaltString, Argon2, PasswordHasher };
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
-use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
+use rand::{ distributions::Alphanumeric, rngs::OsRng, Rng };
 use serde::Deserialize;
 use serde_json::json;
 use bson::doc;
-use totp_rs::{Algorithm, Secret, TOTP};
+use totp_rs::{ Algorithm, Secret, TOTP };
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, token } };
+use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, encrypt, token } };
 
 #[derive(Deserialize)]
 pub struct ConfirmMfaRequest{
@@ -46,7 +46,8 @@ pub async fn put(
     ))
   }
 
-  let account_secret = Secret::Raw(user.mfa_string.unwrap().as_bytes().to_vec());
+  let account_secret = user.mfa_string.clone().unwrap();
+  let account_secret = Secret::Raw(encrypt::decrypt_from_user(&user, account_secret).as_bytes().to_vec());
 
   let totp = TOTP::new(
     Algorithm::SHA1, 

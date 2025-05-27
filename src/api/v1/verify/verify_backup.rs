@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
+use argon2::{password_hash::Encoding, Argon2, PasswordHash, PasswordVerifier};
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
 use serde::Deserialize;
 use serde_json::json;
 use bson::doc;
-use totp_rs::{Algorithm, Secret, TOTP};
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cors::cors, encrypt, token } };
+use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cors::cors, token } };
 
 #[derive(Deserialize)]
 pub struct VerifyEmailRequestBody{
@@ -25,18 +25,26 @@ pub async fn post(
   let ( user, session ) = identity.unwrap();
   if !user.email_verified { return Err(APIError::new(400, "Email not verified".into())) }
 
-  let account_secret = user.mfa_string.clone().unwrap();
-  let account_secret = Secret::Raw(encrypt::decrypt_from_user(&user, account_secret).as_bytes().to_vec());
+  let mut valid = false;
 
-  let totp = TOTP::new(
-    Algorithm::SHA1, 
-    6, 1, 30, 
-    account_secret.to_bytes().unwrap(), 
-    Some("Phaze ID".to_string()), 
-    user.username
-  ).unwrap();
+  let argon2 = Argon2::default();
+  for code_hash in user.backup_codes {
+    let pass = argon2.verify_password(body.code.as_bytes(), &PasswordHash::parse(&code_hash, Encoding::B64).unwrap());
+  
+    if pass.is_ok(){
+      valid = true;
 
-  let valid = totp.check_current(&body.code).unwrap();
+      app.users.update_one(
+        doc! { "_id": user._id },
+        doc! {
+          "$pull": { "backup_codes": code_hash }
+        }
+      ).await.unwrap();
+
+      break;
+    }
+  }
+
   if valid{
     if !session.valid{
       app.sessions.update_one(

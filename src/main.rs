@@ -36,6 +36,9 @@ async fn main() -> anyhow::Result<()> {
     .route("/api/v1/verification/verify_mfa", options(util::cors::options))
     .route("/api/v1/verification/verify_mfa", post(api::v1::verify::verify_mfa::post))
 
+    .route("/api/v1/verification/verify_backup", options(util::cors::options))
+    .route("/api/v1/verification/verify_backup", post(api::v1::verify::verify_backup::post))
+
     .route("/api/v1/verification/verify", options(util::cors::options))
     .route("/api/v1/verification/verify", post(api::v1::verify::verify::post))
 

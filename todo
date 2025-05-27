@@ -1,6 +1,8 @@
 x - 2FA Authentication
-o - OAuth ( Design / Implement )
+o - Account deletion
+o - OAuth ( Design / Implement ) ( use normal oauth but then have each service check all accounts every 48 hours for data they should delete )
 o - Patreon
-o - Backup MFA Codes
+x - Encrypt mfa string
+x - Backup MFA Codes
 x - Password Resetting
 o - Detect suspicious traffic

@@ -25,3 +25,6 @@ argon2 = "0.5.3"
 tokio-util = "0.7.15"
 rust-s3 = "0.35.1"
 totp-rs = { version = "5.7.0", features = [ "qr" ] }
+aes-gcm = "0.10.3"
+blake3 = "1.8.2"
+crypto = "0.5.1"
