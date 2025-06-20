@@ -1,15 +1,20 @@
 use std::sync::Arc;
 
-use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
-use rand::{distributions::Alphanumeric, Rng};
+use axum::{ extract::Query, http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
+use bson::{doc, oid::ObjectId};
 use serde_json::json;
-use bson::doc;
-use totp_rs::{Algorithm, Secret, TOTP};
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, encrypt, ip::get_ip_from_request, token } };
+use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, ip::get_ip_from_request, token } };
+
+#[derive(serde::Deserialize, Debug)]
+pub struct OAuthApplicationRequestQuery{
+  pub client_id: String,
+  pub redirect_uri: String
+}
 
 pub async fn get( 
   headers: HeaderMap,
+  Query(query): Query<OAuthApplicationRequestQuery>,
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
@@ -38,7 +43,27 @@ pub async fn get(
     ))
   }
 
-  if user.has_mfa{
+  let oauth_app = app.oauth_apps.find_one(doc! { "_id": ObjectId::parse_str(query.client_id).unwrap() }).await.unwrap();
+  if oauth_app.is_none(){
+    return Ok((
+      StatusCode::OK,
+      [
+        ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
+        ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
+        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+      ],
+      Json(json!({
+        "name": "Invalid App",
+
+        "valid": false,
+        "error": "App doesn't exist"
+      }))
+    ))
+  }
+
+  let oauth_app = oauth_app.unwrap();
+
+  if oauth_app.redirect_uris.contains(&query.redirect_uri){
     Ok((
       StatusCode::OK,
       [
@@ -47,27 +72,14 @@ pub async fn get(
         ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
       ],
       Json(json!({
-        "is_enabled": true
+        "name": oauth_app.name,
+        "allow_skip": oauth_app.allow_skip,
+
+        "valid": true,
+        "error": "None"
       }))
     ))
   } else{
-    let raw_secret: String = rand::thread_rng().sample_iter(&Alphanumeric).take(16).map(char::from).collect();
-    let account_secret = Secret::Raw(raw_secret.as_bytes().to_vec());
-
-    let totp = TOTP::new(
-      Algorithm::SHA1, 
-      6, 1, 30, 
-      account_secret.to_bytes().unwrap(), 
-      Some("Phaze ID".to_string()), 
-      user.username.clone()
-    ).unwrap();
-
-    let encrypted = encrypt::encrypt_to_user(&user, raw_secret);
-
-    app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
-      "mfa_string": encrypted
-    } }).await.unwrap();
-
     Ok((
       StatusCode::OK,
       [
@@ -75,10 +87,12 @@ pub async fn get(
         ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
         ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
       ],
-      Json(json!({
-        "is_enabled": false,
-        "qr": totp.get_qr_base64(),
-        "txt": totp.get_secret_base32()
+      Json(json!({ 
+        
+        "name": "Invalid App",
+
+        "valid": false,
+        "error": "Invalid redirect URL for application"
       }))
     ))
   }

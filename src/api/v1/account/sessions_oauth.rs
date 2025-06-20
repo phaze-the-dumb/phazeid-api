@@ -4,15 +4,15 @@ use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Ext
 use serde_json::json;
 use bson::doc;
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, ip::get_ip_from_request, token } };
+use crate::{ apphandler::AppHandler, structs::{apierror::APIError, session::PublicSession}, util::{ cookies, cors::cors, ip::get_ip_from_request, token } };
 
-pub async fn delete( 
+pub async fn get( 
   headers: HeaderMap,
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
   if cookies.is_none() { return Err(APIError::default()) }
-  
+
   let cookies = cookies.unwrap().to_str().unwrap().to_owned();
   let cookies = cookies::parse(cookies);
 
@@ -36,25 +36,25 @@ pub async fn delete(
     ))
   }
 
-  if user.has_mfa{
-    app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
-      "has_mfa": false,
-      "mfa_string": "",
-      "backup_codes": Vec::<String>::new()
-    } }).await.unwrap();
+  let mut cursor = app.oauth_sessions.find(doc! { "user_id": user._id }).await.unwrap();
+  let mut sessions = Vec::new();
 
-    Ok((
-      StatusCode::OK,
-      [
-        ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
-        ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
-        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
-      ],
-      Json(json!({
-        
-      }))
-    ))
-  } else{
-    Err(APIError::new(403, "MFA Not Enabled".into()))
+  while cursor.advance().await.unwrap() {
+    let s = cursor.deserialize_current().unwrap();
+    let id = s._id.clone();
+    
+    sessions.push(PublicSession::from_oauth_session(s, id == session._id));
   }
+
+  Ok((
+    StatusCode::OK,
+    [
+      ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
+      ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
+      ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+    ],
+    Json(json!({
+      "sessions": sessions
+    }))
+  ))
 }

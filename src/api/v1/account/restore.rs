@@ -1,16 +1,15 @@
-use std::sync::Arc;
+use std::{ fs, sync::Arc };
 
-use axum::{ extract::Multipart, http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
+use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
 use chrono::Utc;
 use serde_json::json;
 use bson::doc;
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ avatar, cookies, cors::cors, ip::get_ip_from_request, token } };
+use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, email, ip::get_ip_from_request, token } };
 
-pub async fn put( 
+pub async fn get(
   headers: HeaderMap,
-  Extension(app): Extension<Arc<AppHandler>>,
-  mut multipart: Multipart
+  Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
   if cookies.is_none() { return Err(APIError::default()) }
@@ -38,20 +37,21 @@ pub async fn put(
     ))
   }
 
+  if user.deletion_flagged_after.is_none(){ return Err(APIError::new(500, "Account is not flagged for deletion.".into())) }
+  let deleting_at = user.deletion_flagged_after.unwrap();
+
   let now = Utc::now().timestamp();
-  if user.last_avatar_change + 15 > now { return Err(APIError::new(429, "Rate limited".into())) }
+  if deleting_at < now { return Err(APIError::new(500, "Account doesn't exist.".into())) }
 
-  let file = multipart.next_field().await.unwrap().unwrap();
-  if file.content_type().unwrap() != "image/png" { return Err(APIError::default()) }
+  app.users.update_one(doc! { "_id": user._id }, doc! { "$set": { "deletion_flagged_after": None::<i64> } }).await.unwrap();
 
-  let res = avatar::upload(user._id, user.avatar, file, app.r2()).await;
-  if res.is_err() { return Err(APIError::new(500, "Could not upload avatar".into())) }
+  email::send(
+    ( user.username.as_str(), user.email.as_str() ),
+    "Welcome Back!",
+    &fs::read_to_string("templates/email/restored_alert.html").unwrap()
+      .replace("{{USERNAME}}", &user.username)
+  ).await.unwrap();
 
-  app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
-    "last_avatar_change": now,
-    "avatar": res.unwrap()
-  } }).await.unwrap();
-  
   Ok((
     StatusCode::OK,
     [
@@ -59,6 +59,8 @@ pub async fn put(
       ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
-    Json(json!({}))
+    Json(json!({
+      "endpoint": "/profile"
+    }))
   ))
 }

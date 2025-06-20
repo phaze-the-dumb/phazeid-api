@@ -1,12 +1,13 @@
-use std::sync::Arc;
+use std::{ fs, sync::Arc };
 
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
+use chrono::Utc;
 use serde_json::json;
 use bson::doc;
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, ip::get_ip_from_request, token } };
+use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, email, ip::get_ip_from_request, token } };
 
-pub async fn delete( 
+pub async fn del(
   headers: HeaderMap,
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
@@ -36,25 +37,28 @@ pub async fn delete(
     ))
   }
 
-  if user.has_mfa{
-    app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
-      "has_mfa": false,
-      "mfa_string": "",
-      "backup_codes": Vec::<String>::new()
-    } }).await.unwrap();
+  let now = Utc::now().timestamp();
+  app.users.update_one(doc! { "_id": user._id }, doc! { "$set": { "deletion_flagged_after": Some(now + 86400) } }).await.unwrap();
 
-    Ok((
-      StatusCode::OK,
-      [
-        ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
-        ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
-        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
-      ],
-      Json(json!({
-        
-      }))
-    ))
-  } else{
-    Err(APIError::new(403, "MFA Not Enabled".into()))
-  }
+  app.sessions.delete_many(doc! { "user_id": user._id }).await.unwrap();
+  app.oauth_sessions.delete_many(doc! { "user_id": user._id }).await.unwrap();
+
+  email::send(
+    ( user.username.as_str(), user.email.as_str() ),
+    "We're sorry to see you go",
+    &fs::read_to_string("templates/email/deletion_alert.html").unwrap()
+      .replace("{{USERNAME}}", &user.username)
+  ).await.unwrap();
+
+  Ok((
+    StatusCode::OK,
+    [
+      ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
+      ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
+      ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+    ],
+    Json(json!({
+      "endpoint": "/login"
+    }))
+  ))
 }

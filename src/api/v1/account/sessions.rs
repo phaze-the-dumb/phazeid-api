@@ -4,7 +4,7 @@ use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Ext
 use serde_json::json;
 use bson::doc;
 
-use crate::{ apphandler::AppHandler, structs::{apierror::APIError, session::PublicSession}, util::{ cookies, cors::cors, token } };
+use crate::{ apphandler::AppHandler, structs::{apierror::APIError, session::PublicSession}, util::{ cookies, cors::cors, ip::get_ip_from_request, token } };
 
 pub async fn get( 
   headers: HeaderMap,
@@ -18,7 +18,7 @@ pub async fn get(
 
   let token = cookies.get("token").unwrap().clone();
 
-  let identity = token::identify(token, app.clone()).await;
+  let identity = token::identify(token, app.clone(), get_ip_from_request(&headers).unwrap()).await;
   if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
 
   let ( user, session ) = identity.unwrap();
@@ -53,8 +53,7 @@ pub async fn get(
       ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
-    Json(json!({ 
-      "ok": true,
+    Json(json!({
       "sessions": sessions
     }))
   ))

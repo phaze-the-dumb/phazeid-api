@@ -4,3 +4,5 @@ pub mod verify;
 pub mod verification;
 pub mod profile;
 pub mod account;
+pub mod oauth;
+pub mod dev;

@@ -24,6 +24,9 @@ async fn main() -> anyhow::Result<()> {
     .route("/api/v1/status", options(util::cors::options))
     .route("/api/v1/status", get(api::v1::status::get))
 
+    .route("/api/v1/dev/add_app", options(util::cors::options))
+    .route("/api/v1/dev/add_app", put(api::v1::dev::add_app::put))
+
     .route("/api/v1/auth/tunnel", options(util::cors::options))
     .route("/api/v1/auth/tunnel", get(api::v1::auth::tunnel::get))
 
@@ -47,6 +50,9 @@ async fn main() -> anyhow::Result<()> {
 
     .route("/api/v1/account/logout", options(util::cors::options))
     .route("/api/v1/account/logout", get(api::v1::account::logout::get))
+
+    .route("/api/v1/account/logout_oauth", options(util::cors::options))
+    .route("/api/v1/account/logout_oauth", get(api::v1::account::logout_oauth::get))
 
     .route("/api/v1/account/change_username", options(util::cors::options))
     .route("/api/v1/account/change_username", put(api::v1::account::change_username::put))
@@ -72,11 +78,35 @@ async fn main() -> anyhow::Result<()> {
     .route("/api/v1/account/sessions", options(util::cors::options))
     .route("/api/v1/account/sessions", get(api::v1::account::sessions::get))
 
+    .route("/api/v1/account/sessions_oauth", options(util::cors::options))
+    .route("/api/v1/account/sessions_oauth", get(api::v1::account::sessions_oauth::get))
+
+    .route("/api/v1/account/delete", options(util::cors::options))
+    .route("/api/v1/account/delete", delete(api::v1::account::delete::del))
+
+    .route("/api/v1/account/deletion_state", options(util::cors::options))
+    .route("/api/v1/account/deletion_state", get(api::v1::account::deletion_state::get))
+
+    .route("/api/v1/account/restore", options(util::cors::options))
+    .route("/api/v1/account/restore", get(api::v1::account::restore::get))
+
+    .route("/api/v1/oauth/app", options(util::cors::options))
+    .route("/api/v1/oauth/app", get(api::v1::oauth::app::get))
+
+    .route("/api/v1/oauth/authorize", options(util::cors::options))
+    .route("/api/v1/oauth/authorize", put(api::v1::oauth::authorize::put))
+
+    .route("/api/v1/oauth/token", options(util::cors::options))
+    .route("/api/v1/oauth/token", get(api::v1::oauth::token::get))
+
+    .route("/api/v1/oauth/profile", options(util::cors::options))
+    .route("/api/v1/oauth/profile", get(api::v1::oauth::profile::get))
+
     .fallback(handler_404)
     .layer(Extension(handler));
 
   let listener = TcpListener::bind(format!("0.0.0.0:{}", env::var("PORT")?)).await?;
   axum::serve(listener, app).await?;
-  
+
   Ok(())
 }

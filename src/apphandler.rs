@@ -3,12 +3,15 @@ use std::{env, sync::Arc};
 use mongodb::{options::ClientOptions, Client, Collection};
 use s3::{ creds::Credentials, Bucket, Region };
 
-use crate::structs::{session::Session, user::User};
+use crate::structs::{oauthapp::OAuthApplication, oauthcode::OAuthCode, oauthsession::OAuthSession, session::Session, user::User};
 
 #[derive(Debug)]
 pub struct AppHandler{
   pub users: Collection<User>,
   pub sessions: Collection<Session>,
+  pub oauth_apps: Collection<OAuthApplication>,
+  pub oauth_sessions: Collection<OAuthSession>,
+  pub oauth_codes: Collection<OAuthCode>,
 
   r2: R2
 }
@@ -23,6 +26,10 @@ impl AppHandler{
     Ok(Arc::new(Self {
       users: db.collection("Users"),
       sessions: db.collection("Sessions"),
+
+      oauth_apps: db.collection("OAuthApplications"),
+      oauth_sessions: db.collection("OAuthSessions"),
+      oauth_codes: db.collection("OAuthCodes"),
 
       r2: R2::new().unwrap()
     }))

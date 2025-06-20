@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
+use chrono::Utc;
 use serde_json::json;
-use bson::doc;
 
 use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, ip::get_ip_from_request, token } };
 
-pub async fn delete( 
+pub async fn get( 
   headers: HeaderMap,
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
@@ -36,25 +36,19 @@ pub async fn delete(
     ))
   }
 
-  if user.has_mfa{
-    app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
-      "has_mfa": false,
-      "mfa_string": "",
-      "backup_codes": Vec::<String>::new()
-    } }).await.unwrap();
+  let is_deleting = user.deletion_flagged_after.is_some();
+  let time_left = if is_deleting { user.deletion_flagged_after.unwrap() as i64 - Utc::now().timestamp() } else { -1 };
 
-    Ok((
-      StatusCode::OK,
-      [
-        ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
-        ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
-        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
-      ],
-      Json(json!({
-        
-      }))
-    ))
-  } else{
-    Err(APIError::new(403, "MFA Not Enabled".into()))
-  }
+  Ok((
+    StatusCode::OK,
+    [
+      ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
+      ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
+      ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+    ],
+    Json(json!({
+      "is_deleting": is_deleting,
+      "time_left": time_left
+    }))
+  ))
 }

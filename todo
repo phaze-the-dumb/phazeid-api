@@ -1,8 +1,25 @@
-x - 2FA Authentication
-o - Account deletion
-o - OAuth ( Design / Implement ) ( use normal oauth but then have each service check all accounts every 48 hours for data they should delete )
-o - Patreon
-x - Encrypt mfa string
-x - Backup MFA Codes
-x - Password Resetting
-o - Detect suspicious traffic
+Main App:
+- 2FA Authentication
+- Account deletion
+- Limit sessions based on ip ( if an ip isn't the same as in a session then disallow access )
+- OAuth
+- Login with email instead of username
+- Encrypt mfa string
+- Backup MFA Codes
+- Password Resetting
+- OAuth sessions menu
+- Allow skip OAuth screen for some apps
+
+Social Stuff:
+- (N) Friends
+- (N) Chat system??
+
+Billing Stuff:
+- (N) Patreon
+
+Deletion Stuff:
+- (N) Account deletion through oauth
+- (N) Account deletion service
+
+What does this mean stuff:
+- (N) Detect suspicious traffic

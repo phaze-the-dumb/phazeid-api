@@ -8,7 +8,7 @@ use serde_json::json;
 use bson::doc;
 use totp_rs::{ Algorithm, Secret, TOTP };
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, encrypt, token } };
+use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, encrypt, ip::get_ip_from_request, token } };
 
 #[derive(Deserialize)]
 pub struct ConfirmMfaRequest{
@@ -28,7 +28,7 @@ pub async fn put(
 
   let token = cookies.get("token").unwrap().clone();
 
-  let identity = token::identify(token, app.clone()).await;
+  let identity = token::identify(token, app.clone(), get_ip_from_request(&headers).unwrap()).await;
   if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
 
   let ( user, session ) = identity.unwrap();
@@ -86,8 +86,7 @@ pub async fn put(
       ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
-    Json(json!({ 
-      "ok": true,
+    Json(json!({
       "backup_codes": raw_codes
     }))
   ))

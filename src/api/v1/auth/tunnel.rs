@@ -4,7 +4,7 @@ use rsa::{ pkcs8::{DecodePublicKey, EncodePublicKey}, RsaPrivateKey, RsaPublicKe
 use serde_json::json;
 use std::{ env, sync::Arc };
 
-use crate::{ apphandler::AppHandler, structs::tunnel::{ ClientCommand, TurnstileRes }, util::{ change_password::{try_change_password, try_change_password_without_account, try_reset_password}, cookies, decrypt::decrypt, encrypt::encrypt, login::try_login, signup::try_signup } };
+use crate::{ apphandler::AppHandler, structs::tunnel::{ ClientCommand, TurnstileRes }, util::{ change_password::{try_change_password, try_change_password_without_account, try_reset_password}, cookies, decrypt::decrypt, encrypt::encrypt, ip::get_ip_from_request, login::try_login, signup::try_signup } };
 
 pub async fn get(
   headers: HeaderMap,
@@ -15,8 +15,6 @@ pub async fn get(
 }
 
 async fn handle_socket( mut ws: WebSocket, app: Arc<AppHandler>, headers: HeaderMap ){
-  // if !headers.contains_key("cf-connecting-ip"){ return }
-
   let auth = ws.recv().await.unwrap().unwrap().into_text();
   if auth.is_err(){ return; }
 
@@ -76,8 +74,7 @@ async fn handle_socket( mut ws: WebSocket, app: Arc<AppHandler>, headers: Header
       let password = decrypt(data.1.to_owned(), &priv_key).unwrap();
 
       try_login(
-        // headers.get("cf-connecting-ip").unwrap().to_str().unwrap(), 
-        "1.1.1.1", // Will replace once in prod, just for testing.
+        &get_ip_from_request(&headers).unwrap(),
         username, password, &remote_pub_key, &mut ws, app.clone()
       ).await.unwrap();
     },
@@ -90,8 +87,7 @@ async fn handle_socket( mut ws: WebSocket, app: Arc<AppHandler>, headers: Header
       let email = decrypt(data1.1.to_owned(), &priv_key).unwrap();
 
       try_signup(
-        //headers.get("cf-connecting-ip").unwrap().to_str().unwrap(), 
-        "1.1.1.1", // Will replace once in prod, just for testing.
+        &get_ip_from_request(&headers).unwrap(),
         username, password, email, &remote_pub_key, &mut ws, app.clone()
       ).await.unwrap();
     },
@@ -111,7 +107,7 @@ async fn handle_socket( mut ws: WebSocket, app: Arc<AppHandler>, headers: Header
 
       try_change_password(
         new_password, old_password, cookies.get("token").unwrap().clone(), 
-        &remote_pub_key, &mut ws, app.clone()
+        &remote_pub_key, &mut ws, app.clone(), &get_ip_from_request(&headers).unwrap()
       ).await.unwrap();
     },
     "RP" => {

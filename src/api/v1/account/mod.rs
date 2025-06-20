@@ -7,3 +7,8 @@ pub mod change_avatar;
 pub mod confirm_mfa;
 pub mod enable_mfa;
 pub mod disable_mfa;
+pub mod sessions_oauth;
+pub mod logout_oauth;
+pub mod delete;
+pub mod deletion_state;
+pub mod restore;

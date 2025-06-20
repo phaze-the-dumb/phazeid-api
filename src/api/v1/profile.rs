@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse, Extension, Json };
 use serde_json::json;
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, token } };
+use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cookies, cors::cors, ip::get_ip_from_request, token } };
 
 pub async fn get( 
   headers: HeaderMap,
@@ -17,7 +17,7 @@ pub async fn get(
 
   let token = cookies.get("token").unwrap().clone();
 
-  let identity = token::identify(token, app).await;
+  let identity = token::identify(token, app, get_ip_from_request(&headers).unwrap()).await;
   if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
 
   let ( user, session ) = identity.unwrap();
@@ -35,19 +35,34 @@ pub async fn get(
     ))
   }
 
-  Ok((
-    StatusCode::OK,
-    [
-      ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
-      ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
-      ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
-    ],
-    Json(json!({ 
-      "ok": true,
-      "id": user._id.to_hex(),
-      "username": user.username,
-      "email": user.email,
-      "avatar": user.avatar
-    }))
-  ))
+  let is_deleting = user.deletion_flagged_after.is_some();
+  if is_deleting{
+    Ok((
+      StatusCode::OK,
+      [
+        ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
+        ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
+        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+      ],
+      Json(json!({
+        "endpoint": "/restore-account?next=/profile"
+      }))
+    ))
+  } else{
+    Ok((
+      StatusCode::OK,
+      [
+        ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
+        ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
+        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
+      ],
+      Json(json!({
+        "id": user._id.to_hex(),
+        "username": user.username,
+        "email": user.email,
+        "avatar": user.avatar,
+        "roles": user.roles
+      }))
+    ))
+  }
 }

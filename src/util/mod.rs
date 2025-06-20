@@ -8,3 +8,4 @@ pub mod avatar;
 pub mod token;
 pub mod cookies;
 pub mod change_password;
+pub mod ip;

@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::json;
 use bson::doc;
 
-use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cors::cors, token } };
+use crate::{ apphandler::AppHandler, structs::apierror::APIError, util::{ cors::cors, ip::get_ip_from_request, token } };
 
 #[derive(Deserialize)]
 pub struct VerifyEmailRequestBody{
@@ -18,7 +18,7 @@ pub async fn post(
   Extension(app): Extension<Arc<AppHandler>>,
   Json(body): Json<VerifyEmailRequestBody>
 ) -> impl IntoResponse{
-  let identity = token::identify(body.token.clone(), app.clone()).await;
+  let identity = token::identify(body.token.clone(), app.clone(), get_ip_from_request(&headers).unwrap()).await;
   if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
 
   let ( user, session ) = identity.unwrap();
@@ -45,7 +45,7 @@ pub async fn post(
         ( header::SET_COOKIE, format!("token={}; Max-Age=604800; Domain=localhost; Path=/api; HttpOnly; Secure; SameSite=Strict", body.token) ),
         ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
       ],
-      Json(json!({ "ok": true, "PROCEDURE": "PROFILE", "endpoint": format!("/profile#{}", user._id.to_hex()) }))
+      Json(json!({ "PROCEDURE": "NEXT" }))
     ))
   } else{
     Err(APIError::new(400, "Invalid Code".into()))

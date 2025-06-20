@@ -11,6 +11,6 @@ pub async fn get( headers: HeaderMap ) -> impl IntoResponse{
       ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
-    Json(json!({ "ok": true }))
+    Json(json!({  }))
   )
 }

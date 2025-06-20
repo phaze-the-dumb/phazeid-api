@@ -38,10 +38,12 @@ pub struct User{
   pub backup_codes: Vec<String>,
 
   pub roles: Vec<String>,
-  pub allowed_apps: Vec<String>,
+  pub allowed_apps: Vec<ObjectId>,
 
   pub patreon_id: Option<String>,
   pub patreon_tiers: Vec<String>,
   pub patreon_last_update: u64,
-  pub patreon_refresh_token: Option<String>
+  pub patreon_refresh_token: Option<String>,
+
+  pub deletion_flagged_after: Option<i64>
 }

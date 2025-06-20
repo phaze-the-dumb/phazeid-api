@@ -1,6 +1,8 @@
 use bson::oid::ObjectId;
 use serde::{ Deserialize, Serialize };
 
+use crate::structs::oauthsession::OAuthSession;
+
 use super::ipinfo::IPInfo;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -20,7 +22,8 @@ pub struct PublicSession{
   pub _id: String,
   pub created_on: i64,
   pub expires_on: i64,
-  pub loc: IPInfo,
+  pub loc: Option<IPInfo>,
+  pub app_name: Option<String>,
   pub is_this: bool
 }
 
@@ -30,8 +33,20 @@ impl PublicSession{
       _id: session._id.to_hex(),
       created_on: session.created_on,
       expires_on: session.expires_on,
-      loc: session.loc,
+      loc: Some(session.loc),
+      app_name: None,
       is_this
     }
-  } 
+  }
+
+  pub fn from_oauth_session( session: OAuthSession, is_this: bool ) -> Self{
+    PublicSession {
+      _id: session._id.to_hex(),
+      created_on: session.created_on,
+      expires_on: session.expires_on,
+      loc: None,
+      app_name: Some(session.app_name),
+      is_this
+    }
+  }
 }

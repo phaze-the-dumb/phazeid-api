@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::json;
 use bson::doc;
 
-use crate::{ apphandler::AppHandler, structs::{apierror::APIError, tunnel::TurnstileRes}, util::{ cookies, cors::cors, email, token } };
+use crate::{ apphandler::AppHandler, structs::{apierror::APIError, tunnel::TurnstileRes}, util::{ cookies, cors::cors, email, ip::get_ip_from_request, token } };
 
 #[derive(Deserialize)]
 pub struct ChangeEmailRequest{
@@ -28,7 +28,7 @@ pub async fn put(
 
   let token = cookies.get("token").unwrap().clone();
 
-  let identity = token::identify(token, app.clone()).await;
+  let identity = token::identify(token, app.clone(), get_ip_from_request(&headers).unwrap()).await;
   if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
 
   let ( user, session ) = identity.unwrap();
@@ -91,7 +91,6 @@ pub async fn put(
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
     Json(json!({
-      "ok": true,
       "endpoint": "/account/email/verify"
     }))
   ))

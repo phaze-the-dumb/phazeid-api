@@ -95,7 +95,7 @@ pub async fn try_change_password_without_account( password: String, token: Strin
   Ok(())
 }
 
-pub async fn try_change_password( new_password: String, old_password: String, token: String, remote_pub_key: &RsaPublicKey, ws: &mut WebSocket, app: Arc<AppHandler> ) -> anyhow::Result<()>{  
+pub async fn try_change_password( new_password: String, old_password: String, token: String, remote_pub_key: &RsaPublicKey, ws: &mut WebSocket, app: Arc<AppHandler>, ip: &str ) -> anyhow::Result<()>{
   if
     old_password.len() > 50 ||
     new_password.len() > 50
@@ -105,7 +105,7 @@ pub async fn try_change_password( new_password: String, old_password: String, to
     bail!("Password must be less than 50 characters");
   }
  
-  let identity = token::identify(token, app.clone()).await;
+  let identity = token::identify(token, app.clone(), ip.into()).await;
   if identity.is_err() {
     // 1 - Error, 0 - Error Code "Invalid Token"
     ws.send(Message::Text(encrypt("10".to_owned(), &remote_pub_key)?.into())).await?;

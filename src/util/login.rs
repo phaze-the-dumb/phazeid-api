@@ -1,4 +1,4 @@
-use std::{env, fs, sync::Arc};
+use std::{env, sync::Arc};
 
 use argon2::{ password_hash::{Encoding, SaltString}, Argon2, PasswordHash, PasswordHasher, PasswordVerifier };
 use axum::extract::ws::{ Message, WebSocket };
@@ -10,7 +10,7 @@ use anyhow::bail;
 
 use crate::{ apphandler::AppHandler, structs::{ipinfo::IPInfo, session::Session, user::User} };
 
-use super::{email, encrypt::encrypt};
+use super::{ encrypt::encrypt };
 
 pub async fn try_login( ip: &str, username: String, password: String, remote_pub_key: &RsaPublicKey, ws: &mut WebSocket, app: Arc<AppHandler> ) -> anyhow::Result<User>{
   if
@@ -23,11 +23,15 @@ pub async fn try_login( ip: &str, username: String, password: String, remote_pub
     bail!("Password and Username must be less than 50 characters");
   }
 
-  let user = app.users.find_one(doc! { "username": &username }).await?;
+  let mut user = app.users.find_one(doc! { "username": &username }).await?;
   if user.is_none(){
-    // 1 - Error, 0 - Error Code "Incorrect Username or Password"
-    ws.send(Message::Text(encrypt("11".to_owned(), &remote_pub_key)?.into())).await?;
-    bail!("Incorrect Username or Password");
+    user = app.users.find_one(doc! { "email": &username }).await?;
+
+    if user.is_none(){
+      // 1 - Error, 0 - Error Code "Incorrect Username or Password"
+      ws.send(Message::Text(encrypt("11".to_owned(), &remote_pub_key)?.into())).await?;
+      bail!("Incorrect Username or Password");
+    }
   }
 
   let user = user.unwrap();
@@ -77,6 +81,15 @@ pub async fn try_login( ip: &str, username: String, password: String, remote_pub
   app.sessions.delete_many(doc! { "valid": false, "user_id": user._id }).await.unwrap();
   app.sessions.delete_many(doc! { "expires_on": { "$lt": now }, "user_id": user._id }).await.unwrap();
 
+  if user.deletion_flagged_after.is_some(){
+    let deleting_at = user.deletion_flagged_after.unwrap();
+    if deleting_at < now {
+      // 1 - Error, 0 - Error Code "Incorrect Username or Password"
+      ws.send(Message::Text(encrypt("11".to_owned(), &remote_pub_key)?.into())).await?;
+      bail!("Incorrect Username or Password");
+    }
+  }
+
   let salt = SaltString::generate(&mut OsRng);
 
   let session = Session {
@@ -100,13 +113,13 @@ pub async fn try_login( ip: &str, username: String, password: String, remote_pub
 
   ws.send(Message::Text(encrypt(format!("0{}{}", token, session._id), &remote_pub_key)?.into())).await?;
 
-  email::send(
-    ( user.username.as_str(), user.email.as_str() ), 
-    "PhazeID Login",
-    &fs::read_to_string("templates/email/login_alert.html").unwrap()
-      .replace("{{USERNAME}}", &user.username)
-      .replace("{{IP}}", &session.loc.ip)
-  ).await.unwrap();
+  // email::send(
+  //   ( user.username.as_str(), user.email.as_str() ),
+  //   "PhazeID Login",
+  //   &fs::read_to_string("templates/email/login_alert.html").unwrap()
+  //     .replace("{{USERNAME}}", &user.username)
+  //     .replace("{{IP}}", &session.loc.ip)
+  // ).await.unwrap();
 
   Ok(user)
 }

@@ -8,16 +8,49 @@ use chrono::Utc;
 use serde_json::{ json, Value };
 
 pub fn verified( user: &User, session: &Session ) -> anyhow::Result<(), Value> {
-  if !user.email_verified { return Err(json!({ "ok": true, "procedure": "VERIFY_EMAIL", "endpoint": "/verify-email" })) }
+  if !user.email_verified { return Err(json!({  "procedure": "VERIFY_EMAIL", "endpoint": "/verify-email" })) }
   if !session.valid {
-    if user.has_mfa { return Err(json!({ "ok": true, "procedure": "VERIFY_MFA", "endpoint": "/verify-mfa" })) }
-    else            { return Err(json!({ "ok": true, "procedure": "VERIFY", "endpoint": "/verify" })) }
+    if user.has_mfa { return Err(json!({  "procedure": "VERIFY_MFA", "endpoint": "/verify-mfa" })) }
+    else            { return Err(json!({  "procedure": "VERIFY", "endpoint": "/verify" })) }
   }
 
   Ok(())
 }
 
-pub async fn identify( token: String, app: Arc<AppHandler> ) -> anyhow::Result<( User, Session )> {
+pub async fn identify_oauth( auth: String, scope: String, app: Arc<AppHandler> ) -> anyhow::Result<User> {
+  if !auth.starts_with("Bearer "){ return Err(anyhow!("Invalid Token")) }
+
+  let argon2 = Argon2::default();
+  let now = Utc::now().timestamp();
+
+  let auth = auth.split_at(7).1;
+  let ( token_id, token ) = auth.split_at(24);
+
+  let oauth_session = app.oauth_sessions.find_one(doc! { "_id": ObjectId::parse_str(token_id).unwrap() }).await.unwrap();
+  if oauth_session.is_none(){ return Err(anyhow!("Invalid Token")) }
+
+  let oauth_session = oauth_session.unwrap();
+
+  if oauth_session.expires_on < now{
+    app.oauth_sessions.delete_one(doc! { "_id": oauth_session._id }).await.unwrap();
+    return Err(anyhow!("Invalid Token"))
+  }
+
+  let valid = argon2.verify_password(token.as_bytes(), &PasswordHash::parse(&oauth_session.token, Encoding::B64).unwrap()).is_ok();
+  if !valid { return Err(anyhow!("Invalid Token")) }
+
+  if !oauth_session.scopes.contains(&scope){ return Err(anyhow!("Invalid Token")) }
+
+  let user = app.users.find_one(doc! { "_id": oauth_session.user_id }).await.unwrap();
+  if user.is_none(){
+    app.oauth_sessions.delete_one(doc! { "_id": oauth_session._id }).await.unwrap();
+    return Err(anyhow!("Invalid Token"))
+  }
+
+  Ok(user.unwrap())
+}
+
+pub async fn identify( token: String, app: Arc<AppHandler>, ip: String ) -> anyhow::Result<( User, Session )> {
   if token.len() < 64 { return Err(anyhow!("Token is too short")) }
 
   let ( token, token_id ) = token.split_at(64);
@@ -30,6 +63,8 @@ pub async fn identify( token: String, app: Arc<AppHandler> ) -> anyhow::Result<(
 
   if session.is_none(){ return Err(anyhow!("No session")) }
   let session = session.unwrap();
+
+  if ip.ne(&session.loc.ip){ return Err(anyhow!("Invalid session")); }
 
   let now = Utc::now().timestamp();
   if session.expires_on < now {

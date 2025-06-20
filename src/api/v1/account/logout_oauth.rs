@@ -41,7 +41,7 @@ pub async fn get(
   if specific_session.is_some(){
     let specific_session = specific_session.unwrap();
 
-    app.sessions.delete_one(doc! {
+    app.oauth_sessions.delete_one(doc! {
       "_id": ObjectId::parse_str(specific_session).unwrap(),
       "user_id": user._id // Include user ID to only let users delete their sessions.
     }).await.unwrap();
@@ -58,18 +58,6 @@ pub async fn get(
       }))
     ))
   } else{
-    app.sessions.delete_one(doc! { "_id": session._id }).await.unwrap();
-
-    Ok((
-      StatusCode::OK,
-      [
-        ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
-        ( header::ACCESS_CONTROL_ALLOW_METHODS, "GET".into() ),
-        ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
-      ],
-      Json(json!({
-        "endpoint": "/login"
-      }))
-    ))
+    Err(APIError::new(500, "Invalid Session".into()))
   }
 }
