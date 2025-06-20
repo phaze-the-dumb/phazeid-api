@@ -12,3 +12,4 @@ pub mod logout_oauth;
 pub mod delete;
 pub mod deletion_state;
 pub mod restore;
+pub mod remove_oauth_app;

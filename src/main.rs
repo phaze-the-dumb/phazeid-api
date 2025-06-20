@@ -90,6 +90,9 @@ async fn main() -> anyhow::Result<()> {
     .route("/api/v1/account/restore", options(util::cors::options))
     .route("/api/v1/account/restore", get(api::v1::account::restore::get))
 
+    .route("/api/v1/account/remove_oauth_app", options(util::cors::options))
+    .route("/api/v1/account/remove_oauth_app", get(api::v1::account::remove_oauth_app::get))
+
     .route("/api/v1/oauth/app", options(util::cors::options))
     .route("/api/v1/oauth/app", get(api::v1::oauth::app::get))
 
@@ -101,6 +104,9 @@ async fn main() -> anyhow::Result<()> {
 
     .route("/api/v1/oauth/profile", options(util::cors::options))
     .route("/api/v1/oauth/profile", get(api::v1::oauth::profile::get))
+
+    .route("/api/v1/oauth/to_delete", options(util::cors::options))
+    .route("/api/v1/oauth/to_delete", get(api::v1::oauth::to_delete::get))
 
     .fallback(handler_404)
     .layer(Extension(handler));

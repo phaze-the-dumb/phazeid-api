@@ -9,6 +9,7 @@ Main App:
 - Password Resetting
 - OAuth sessions menu
 - Allow skip OAuth screen for some apps
+- Add warning on frontend when unauthorizing an app about deleting all data for that app
 
 Social Stuff:
 - (N) Friends

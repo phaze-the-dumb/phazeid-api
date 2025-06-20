@@ -42,8 +42,8 @@ pub async fn get(
   while cursor.advance().await.unwrap() {
     let s = cursor.deserialize_current().unwrap();
     let id = s._id.clone();
-    
-    sessions.push(PublicSession::from_session(s, id == session._id)); 
+
+    sessions.push(PublicSession::from_session(s, id == session._id));
   }
 
   Ok((

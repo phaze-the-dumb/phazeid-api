@@ -96,7 +96,8 @@ pub async fn try_signup( ip: &str, username: String, password: String, email: St
     patreon_last_update: 0,
     patreon_refresh_token: None,
 
-    deletion_flagged_after: None
+    deletion_flagged_after: None,
+    apps_to_delete_data: vec![]
   };
 
   let session = Session {
