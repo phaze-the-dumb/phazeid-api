@@ -42,8 +42,10 @@ pub struct User{
 
   pub patreon_id: Option<String>,
   pub patreon_tiers: Vec<String>,
-  pub patreon_last_update: u64,
+  pub patreon_last_update: i64,
   pub patreon_refresh_token: Option<String>,
+  pub patreon_token: Option<String>,
+  pub patreon_token_expires: i64,
 
   pub deletion_flagged_after: Option<i64>,
   pub apps_to_delete_data: Vec<ObjectId>

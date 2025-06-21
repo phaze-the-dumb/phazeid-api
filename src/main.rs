@@ -108,6 +108,15 @@ async fn main() -> anyhow::Result<()> {
     .route("/api/v1/oauth/to_delete", options(util::cors::options))
     .route("/api/v1/oauth/to_delete", get(api::v1::oauth::to_delete::get))
 
+    .route("/api/v1/patreon/link", options(util::cors::options))
+    .route("/api/v1/patreon/link", get(api::v1::patreon::link::get))
+
+    .route("/api/v1/patreon/callback", options(util::cors::options))
+    .route("/api/v1/patreon/callback", get(api::v1::patreon::callback::get))
+
+    .route("/api/v1/patreon/refresh", options(util::cors::options))
+    .route("/api/v1/patreon/refresh", get(api::v1::patreon::refresh::get))
+
     .fallback(handler_404)
     .layer(Extension(handler));
 

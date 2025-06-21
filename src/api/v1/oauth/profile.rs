@@ -29,7 +29,10 @@ pub async fn get(
       "id": user._id.to_hex(),
       "username": user.username,
       "email": user.email,
-      "avatar": user.avatar
+      "avatar": user.avatar,
+      "roles": user.roles,
+      "patreon_linked": user.patreon_id.is_some(),
+      "patreon_tiers": user.patreon_tiers
     }))
   ))
 }

@@ -61,7 +61,9 @@ pub async fn get(
         "username": user.username,
         "email": user.email,
         "avatar": user.avatar,
-        "roles": user.roles
+        "roles": user.roles,
+        "patreon_linked": user.patreon_id.is_some(),
+        "patreon_tiers": user.patreon_tiers
       }))
     ))
   }

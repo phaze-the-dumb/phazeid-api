@@ -95,6 +95,8 @@ pub async fn try_signup( ip: &str, username: String, password: String, email: St
     patreon_tiers: vec![],
     patreon_last_update: 0,
     patreon_refresh_token: None,
+    patreon_token: None,
+    patreon_token_expires: 0,
 
     deletion_flagged_after: None,
     apps_to_delete_data: vec![]

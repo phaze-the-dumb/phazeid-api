@@ -6,3 +6,4 @@ pub mod profile;
 pub mod account;
 pub mod oauth;
 pub mod dev;
+pub mod patreon;
