@@ -49,7 +49,7 @@ pub async fn get(
 
   let client = reqwest::Client::new();
   let res = client.post("https://www.patreon.com/api/oauth2/token")
-    .body(format!("code={}&grant_type=authorization_code&client_id={}&client_secret={}&redirect_uri=http://localhost:5173/account/patreon", query.code, env::var("PATREON_CLIENT_ID").unwrap(), env::var("PATREON_CLIENT_SECRET").unwrap()))
+    .body(format!("code={}&grant_type=authorization_code&client_id={}&client_secret={}&redirect_uri=https://id.phazed.xyz/account/patreon", query.code, env::var("PATREON_CLIENT_ID").unwrap(), env::var("PATREON_CLIENT_SECRET").unwrap()))
     .header("Content-Type", "application/x-www-form-urlencoded")
     .send().await.unwrap();
 

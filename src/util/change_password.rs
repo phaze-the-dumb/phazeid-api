@@ -47,7 +47,7 @@ pub async fn try_reset_password( email: String, remote_pub_key: &RsaPublicKey, w
     "PhazeID Password Reset",
     &fs::read_to_string("templates/email/password_reset.html").unwrap()
       .replace("{{USERNAME}}", &user.username)
-      .replace("{{URL}}", &format!("http://localhost:5173/reset#{}{}", token, user._id.to_hex()))
+      .replace("{{URL}}", &format!("https://id.phazed.xyz/reset#{}{}", token, user._id.to_hex()))
   ).await.unwrap();
 
   ws.send(Message::Text(encrypt("0".into(), &remote_pub_key)?.into())).await?;

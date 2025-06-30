@@ -51,7 +51,7 @@ pub async fn get(
     let refresh_token = decrypt_from_user(&user, user.clone().patreon_refresh_token.unwrap());
 
     let res = client.post("https://www.patreon.com/api/oauth2/token")
-      .body(format!("refresh_token={}&grant_type=refresh_token&client_id={}&client_secret={}&redirect_uri=http://localhost:5173/account/patreon", refresh_token, env::var("PATREON_CLIENT_ID").unwrap(), env::var("PATREON_CLIENT_SECRET").unwrap()))
+      .body(format!("refresh_token={}&grant_type=refresh_token&client_id={}&client_secret={}&redirect_uri=https://id.phazed.xyz/account/patreon", refresh_token, env::var("PATREON_CLIENT_ID").unwrap(), env::var("PATREON_CLIENT_SECRET").unwrap()))
       .header("Content-Type", "application/x-www-form-urlencoded")
       .send().await.unwrap();
 
