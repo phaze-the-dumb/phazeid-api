@@ -10,12 +10,12 @@ pub async fn get(
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
   let auth = headers.get("authorization");
-  if auth.is_none() { return Err(APIError::default()) }
+  if auth.is_none() { return Err(APIError::default(&headers)) }
 
   let auth = auth.unwrap().to_str().unwrap();
   let user = token::identify_oauth(auth.to_string(), "identify".into(), app).await;
 
-  if user.is_err(){ return Err(APIError::new(500, user.unwrap_err().to_string())) }
+  if user.is_err(){ return Err(APIError::new(500, user.unwrap_err().to_string(), &headers)) }
   let user = user.unwrap();
 
   Ok((

@@ -50,13 +50,22 @@ async fn handle_socket( mut ws: WebSocket, app: Arc<AppHandler>, headers: Header
   ws.send(Message::Text(encrypt("OK".to_owned(), &remote_pub_key).unwrap().into())).await.unwrap();
 
   let auth = ws.recv().await;
-  if auth.is_none(){ return; }
-  
+  if auth.is_none(){
+    ws.send(Message::Text("INVALID".into())).await.unwrap();
+    return;
+  }
+
   let auth = auth.unwrap();
-  if auth.is_err(){ return; }
-  
+  if auth.is_err(){
+    ws.send(Message::Text("INVALID".into())).await.unwrap();
+    return;
+  }
+
   let auth = auth.unwrap().into_text();
-  if auth.is_err(){ return; }
+  if auth.is_err(){
+    ws.send(Message::Text("INVALID".into())).await.unwrap();
+    return;
+  }
 
   let auth = auth.unwrap();
   let auth = auth.as_str().split_at(2);

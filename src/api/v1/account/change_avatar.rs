@@ -13,7 +13,7 @@ pub async fn put(
   mut multipart: Multipart
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
-  if cookies.is_none() { return Err(APIError::default()) }
+  if cookies.is_none() { return Err(APIError::default(&headers)) }
   
   let cookies = cookies.unwrap().to_str().unwrap().to_owned();
   let cookies = cookies::parse(cookies);
@@ -21,7 +21,7 @@ pub async fn put(
   let token = cookies.get("token").unwrap().clone();
 
   let identity = token::identify(token, app.clone(), get_ip_from_request(&headers).unwrap()).await;
-  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
+  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string(), &headers)) }
 
   let ( user, session ) = identity.unwrap();
   let verified = token::verified(&user, &session);
@@ -39,13 +39,13 @@ pub async fn put(
   }
 
   let now = Utc::now().timestamp();
-  if user.last_avatar_change + 15 > now { return Err(APIError::new(429, "Rate limited".into())) }
+  if user.last_avatar_change + 15 > now { return Err(APIError::new(429, "Rate limited".into(), &headers)) }
 
   let file = multipart.next_field().await.unwrap().unwrap();
-  if file.content_type().unwrap() != "image/png" { return Err(APIError::default()) }
+  if file.content_type().unwrap() != "image/png" { return Err(APIError::default(&headers)) }
 
   let res = avatar::upload(user._id, user.avatar, file, app.r2()).await;
-  if res.is_err() { return Err(APIError::new(500, "Could not upload avatar".into())) }
+  if res.is_err() { return Err(APIError::new(500, "Could not upload avatar".into(), &headers)) }
 
   app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
     "last_avatar_change": now,

@@ -32,7 +32,7 @@ pub async fn put(
   Json(body): Json<OAuthApplicationRequest>
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
-  if cookies.is_none() { return Err(APIError::default()) }
+  if cookies.is_none() { return Err(APIError::default(&headers)) }
   
   let cookies = cookies.unwrap().to_str().unwrap().to_owned();
   let cookies = cookies::parse(cookies);
@@ -40,7 +40,7 @@ pub async fn put(
   let token = cookies.get("token").unwrap().clone();
 
   let identity = token::identify(token, app.clone(), get_ip_from_request(&headers).unwrap()).await;
-  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
+  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string(), &headers)) }
 
   let ( user, session ) = identity.unwrap();
   let verified = token::verified(&user, &session);
@@ -57,16 +57,16 @@ pub async fn put(
     ))
   }
 
-  if query.response_type != "code" && query.response_type != "code_skip" { return Err(APIError::new(400, "Invalid Response Type.".into())); }
+  if query.response_type != "code" && query.response_type != "code_skip" { return Err(APIError::new(400, "Invalid Response Type.".into(), &headers)); }
 
   let oauth_app = app.oauth_apps.find_one(doc! { "_id": ObjectId::parse_str(query.client_id).unwrap() }).await.unwrap();
-  if oauth_app.is_none(){ return Err(APIError::new(500, "Invalid App".into())) }
+  if oauth_app.is_none(){ return Err(APIError::new(500, "Invalid App".into(), &headers)) }
 
   let oauth_app = oauth_app.unwrap();
-  if !oauth_app.redirect_uris.contains(&query.redirect_uri){ return Err(APIError::new(500, "Invalid Redirect URI".into())) }
+  if !oauth_app.redirect_uris.contains(&query.redirect_uri){ return Err(APIError::new(500, "Invalid Redirect URI".into(), &headers)) }
 
   if query.response_type == "code_skip" {
-    if !oauth_app.allow_skip { return Err(APIError::new(400, "Invalid Response Type.".into())); }
+    if !oauth_app.allow_skip { return Err(APIError::new(400, "Invalid Response Type.".into(), &headers)); }
   } else{
     let client = reqwest::Client::new();
     let dat = client.post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
@@ -78,12 +78,12 @@ pub async fn put(
       .send().await.unwrap().text().await.unwrap();
 
     let dat: TurnstileRes = serde_json::from_str(&dat).unwrap();
-    if !dat.success { return Err(APIError::new(400, "Invalid Captcha.".into())); }
+    if !dat.success { return Err(APIError::new(400, "Invalid Captcha.".into(), &headers)); }
   }
 
   let scopes = query.scope.split(",");
   for scope in scopes.clone() {
-    if !SCOPES.contains(&scope){ return Err(APIError::new(500, "Invalid Scopes".into())) } }
+    if !SCOPES.contains(&scope){ return Err(APIError::new(500, "Invalid Scopes".into(), &headers)) } }
 
   let token: String = rand::thread_rng().sample_iter(&Alphanumeric).take(64).map(char::from).collect();
 

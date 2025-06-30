@@ -12,7 +12,7 @@ pub async fn get(
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
-  if cookies.is_none() { return Err(APIError::default()) }
+  if cookies.is_none() { return Err(APIError::default(&headers)) }
   
   let cookies = cookies.unwrap().to_str().unwrap().to_owned();
   let cookies = cookies::parse(cookies);
@@ -20,7 +20,7 @@ pub async fn get(
   let token = cookies.get("token").unwrap().clone();
 
   let identity = token::identify(token, app.clone(), get_ip_from_request(&headers).unwrap()).await;
-  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
+  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string(), &headers)) }
 
   let ( user, session ) = identity.unwrap();
   let verified = token::verified(&user, &session);
@@ -70,6 +70,6 @@ pub async fn get(
       }))
     ))
   } else{
-    Err(APIError::new(500, "Invalid Session".into()))
+    Err(APIError::new(500, "Invalid Session".into(), &headers))
   }
 }

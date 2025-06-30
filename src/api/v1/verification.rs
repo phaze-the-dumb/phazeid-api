@@ -15,7 +15,7 @@ pub async fn get(
   let mut next = query["next"].as_str().unwrap().to_owned();
 
   let identity = token::identify(token.clone(), app, get_ip_from_request(&headers).unwrap()).await;
-  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
+  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string(), &headers)) }
 
   let ( user, session ) = identity.unwrap();
 
@@ -56,7 +56,7 @@ pub async fn get(
         ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() ),
         ( header::ACCEPT, "*".into() )
       ],
-      Json(json!({ "procedure": "VERIFY", "endpoint": format!("/verify-email?redirect_to={}", encode(&next)) }))
+      Json(json!({ "procedure": "VERIFY", "endpoint": format!("/verify?redirect_to={}", encode(&next)) }))
     ))
   }
 

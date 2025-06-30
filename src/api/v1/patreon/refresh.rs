@@ -12,7 +12,7 @@ pub async fn get(
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
-  if cookies.is_none() { return Err(APIError::default()) }
+  if cookies.is_none() { return Err(APIError::default(&headers)) }
 
   let cookies = cookies.unwrap().to_str().unwrap().to_owned();
   let cookies = cookies::parse(cookies);
@@ -20,7 +20,7 @@ pub async fn get(
   let token = cookies.get("token").unwrap().clone();
 
   let identity = token::identify(token, app.clone(), get_ip_from_request(&headers).unwrap()).await;
-  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
+  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string(), &headers)) }
 
   let ( user, session ) = identity.unwrap();
   let verified = token::verified(&user, &session);
@@ -38,7 +38,7 @@ pub async fn get(
   }
 
   let now = Utc::now().timestamp();
-  if user.patreon_id.is_none() || user.patreon_last_update + 3600 > now { return Err(APIError::new(429, "You can only refresh once an hour.".into())) }
+  if user.patreon_id.is_none() || user.patreon_last_update + 3600 > now { return Err(APIError::new(429, "You can only refresh once an hour.".into(), &headers)) }
 
   let client = reqwest::Client::new();
   let access_token;
@@ -55,7 +55,7 @@ pub async fn get(
       .header("Content-Type", "application/x-www-form-urlencoded")
       .send().await.unwrap();
 
-    if res.status() != 200 { return Err(APIError::new(500, format!("Invalid Patreon Code. Patreon Error: {}", res.status()))) }
+    if res.status() != 200 { return Err(APIError::new(500, format!("Invalid Patreon Code. Patreon Error: {}", res.status()), &headers)) }
     let dat = res.text().await.unwrap();
 
     let dat: PatreonTokenRes = serde_json::from_str(&dat).unwrap();
@@ -72,7 +72,7 @@ pub async fn get(
     .header("Authorization", format!("Bearer {}", access_token))
     .send().await.unwrap();
 
-  if user_res.status() != 200 { return Err(APIError::new(500, format!("Invalid Patreon Code (2). Patreon Error: {}", user_res.status()))) }
+  if user_res.status() != 200 { return Err(APIError::new(500, format!("Invalid Patreon Code (2). Patreon Error: {}", user_res.status()), &headers)) }
 
   let user_dat = user_res.text().await.unwrap();
   let user_dat: Value = serde_json::from_str(&user_dat).unwrap();

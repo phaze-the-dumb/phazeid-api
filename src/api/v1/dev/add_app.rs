@@ -21,7 +21,7 @@ pub async fn put(
   Json(body): Json<AppApplicationRequest>
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
-  if cookies.is_none() { return Err(APIError::default()) }
+  if cookies.is_none() { return Err(APIError::default(&headers)) }
 
   let cookies = cookies.unwrap().to_str().unwrap().to_owned();
   let cookies = cookies::parse(cookies);
@@ -29,7 +29,7 @@ pub async fn put(
   let token = cookies.get("token").unwrap().clone();
 
   let identity = token::identify(token, app.clone(), get_ip_from_request(&headers).unwrap()).await;
-  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
+  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string(), &headers)) }
 
   let ( user, session ) = identity.unwrap();
   let verified = token::verified(&user, &session);
@@ -46,7 +46,7 @@ pub async fn put(
     ))
   }
 
-  if !user.roles.contains(&"DEV".to_string()){ return Err(APIError::new(404, "nothing to see here".into())) }
+  if !user.roles.contains(&"DEV".to_string()){ return Err(APIError::new(404, "nothing to see here".into(), &headers)) }
   let token: String = rand::thread_rng().sample_iter(&Alphanumeric).take(64).map(char::from).collect();
 
   let argon2 = Argon2::default();

@@ -22,16 +22,16 @@ pub async fn get(
   Query(query): Query<OAuthApplicationRequestQuery>,
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
-  if query.grant_type != "authorization_code" { return Err(APIError::new(400, "Invalid Grant Type.".into())); }
+  if query.grant_type != "authorization_code" { return Err(APIError::new(400, "Invalid Grant Type.".into(), &headers)); }
 
   let oauth_app = app.oauth_apps.find_one(doc! { "_id": ObjectId::parse_str(&query.client_id).unwrap() }).await.unwrap();
-  if oauth_app.is_none(){ return Err(APIError::new(500, "Invalid App".into())) }
+  if oauth_app.is_none(){ return Err(APIError::new(500, "Invalid App".into(), &headers)) }
 
   let oauth_app = oauth_app.unwrap();
-  if !oauth_app.redirect_uris.contains(&query.redirect_uri){ return Err(APIError::new(500, "Invalid Redirect URI".into())) }
+  if !oauth_app.redirect_uris.contains(&query.redirect_uri){ return Err(APIError::new(500, "Invalid Redirect URI".into(), &headers)) }
 
   let auth = headers.get("Authorization").unwrap().to_str().unwrap();
-  if !auth.starts_with("Bearer "){ return Err(APIError::new(401, "Invalid App Key".into())) }
+  if !auth.starts_with("Bearer "){ return Err(APIError::new(401, "Invalid App Key".into(), &headers)) }
 
   let argon2 = Argon2::default();
   let now = Utc::now().timestamp();
@@ -39,28 +39,28 @@ pub async fn get(
   let auth = auth.split_at(7).1;
 
   let valid = argon2.verify_password(auth.as_bytes(), &PasswordHash::parse(&oauth_app.key, Encoding::B64).unwrap()).is_ok();
-  if !valid { return Err(APIError::new(500, "Invalid App Key".into())) }
+  if !valid { return Err(APIError::new(500, "Invalid App Key".into(), &headers)) }
 
   let ( token_id, token ) = query.code.split_at(24);
 
   let oauth_code = app.oauth_codes.find_one(doc! { "_id": ObjectId::parse_str(token_id).unwrap() }).await.unwrap();
-  if oauth_code.is_none(){ return Err(APIError::new(500, "Invalid OAuth Code.".into())) }
+  if oauth_code.is_none(){ return Err(APIError::new(500, "Invalid OAuth Code.".into(), &headers)) }
 
   let oauth_code = oauth_code.unwrap();
   if oauth_code.expires_on < now {
     app.oauth_codes.delete_one(doc! { "_id": oauth_code._id }).await.unwrap();
-    return Err(APIError::new(500, "Invalid OAuth Code.".into()))
+    return Err(APIError::new(500, "Invalid OAuth Code.".into(), &headers))
   }
 
   if
     query.redirect_uri != oauth_code.redirect_uri ||
     query.client_id != oauth_code.app.to_hex()
   {
-    return Err(APIError::new(500, "Invalid OAuth Code.".into()))
+    return Err(APIError::new(500, "Invalid OAuth Code.".into(), &headers))
   }
 
   let valid = argon2.verify_password(token.as_bytes(), &PasswordHash::parse(&oauth_code.token, Encoding::B64).unwrap()).is_ok();
-  if !valid { return Err(APIError::new(500, "Invalid OAuth Code.".into())) }
+  if !valid { return Err(APIError::new(500, "Invalid OAuth Code.".into(), &headers)) }
 
   let token: String = rand::thread_rng().sample_iter(&Alphanumeric).take(64).map(char::from).collect();
   let salt = SaltString::generate(&mut OsRng);

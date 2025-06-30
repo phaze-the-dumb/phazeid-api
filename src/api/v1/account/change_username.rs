@@ -20,7 +20,7 @@ pub async fn put(
   Json(body): Json<ChangeUsernameRequest>
 ) -> impl IntoResponse{
   let cookies = headers.get("cookie");
-  if cookies.is_none() { return Err(APIError::default()) }
+  if cookies.is_none() { return Err(APIError::default(&headers)) }
   
   let cookies = cookies.unwrap().to_str().unwrap().to_owned();
   let cookies = cookies::parse(cookies);
@@ -28,7 +28,7 @@ pub async fn put(
   let token = cookies.get("token").unwrap().clone();
 
   let identity = token::identify(token, app.clone(), get_ip_from_request(&headers).unwrap()).await;
-  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
+  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string(), &headers)) }
 
   let ( user, session ) = identity.unwrap();
   let verified = token::verified(&user, &session);
@@ -45,10 +45,10 @@ pub async fn put(
     ))
   }
 
-  if body.value.eq("") { return Err(APIError::new(400, "NO.".into())); }  
+  if body.value.eq("") { return Err(APIError::new(400, "NO.".into(), &headers)); }
   
   let now = Utc::now().timestamp();
-  if user.last_username_change + 900 > now { return Err(APIError::new(429, "Username has been changed in the last 15 minutes. Please wait to change it again.".into())) }
+  if user.last_username_change + 900 > now { return Err(APIError::new(429, "Username has been changed in the last 15 minutes. Please wait to change it again.".into(), &headers)) }
 
   let client = reqwest::Client::new();
   let dat = client.post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
@@ -60,11 +60,11 @@ pub async fn put(
     .send().await.unwrap().text().await.unwrap();
 
   let dat: TurnstileRes = serde_json::from_str(&dat).unwrap();
-  if !dat.success { return Err(APIError::new(400, "Invalid Captcha.".into())); }
+  if !dat.success { return Err(APIError::new(400, "Invalid Captcha.".into(), &headers)); }
 
   let user_to_check = app.users.find_one(doc! { "username": &body.value }).await.unwrap();
   if user_to_check.is_some(){
-    return Err(APIError::new(400, "Username already in use.".into())); }
+    return Err(APIError::new(400, "Username already in use.".into(), &headers)); }
 
   app.users.update_one(doc! { "_id": user._id }, doc! { "$set": {
     "username": body.value,

@@ -19,10 +19,10 @@ pub async fn post(
   Json(body): Json<VerifyEmailRequestBody>
 ) -> impl IntoResponse{
   let identity = token::identify(body.token.clone(), app.clone(), get_ip_from_request(&headers).unwrap()).await;
-  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string())) }
+  if identity.is_err() { return Err(APIError::new(500, identity.unwrap_err().to_string(), &headers)) }
 
   let ( user, session ) = identity.unwrap();
-  if user.email_verified { return Err(APIError::new(400, "Email already verified".into())) }
+  if user.email_verified { return Err(APIError::new(400, "Email already verified".into(), &headers)) }
 
   if body.code.eq(&user.email_verification_code){
     app.users.update_one(
@@ -42,12 +42,12 @@ pub async fn post(
       [
         ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
         ( header::ACCESS_CONTROL_ALLOW_METHODS, "POST".into() ),
-        ( header::SET_COOKIE, format!("token={}; Max-Age=604800; Domain=localhost; Path=/api; HttpOnly; Secure; SameSite=Strict", body.token) ),
+        ( header::SET_COOKIE, format!("token={}; Max-Age=604800; Domain=id.api.phaz.uk; Path=/api; HttpOnly; Secure; SameSite=Strict", body.token) ),
         ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
       ],
       Json(json!({ "PROCEDURE": "NEXT" }))
     ))
   } else{
-    Err(APIError::new(400, "Invalid Code".into()))
+    Err(APIError::new(400, "Invalid Code".into(), &headers))
   }
 }

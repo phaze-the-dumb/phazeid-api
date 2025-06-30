@@ -1,8 +1,6 @@
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse };
 
-const ALLOWED_ORIGINS: [ &'static str; 2 ] = [ "https://id.phaz.uk", "https://id.phazed.xyz" ];
-
-pub const ORIGIN: &'static str = "https://id.phaz.uk";
+pub const ALLOWED_ORIGINS: [ &'static str; 3 ] = [ "https://id.phaz.uk", "https://id.phazed.xyz", "http://localhost:5173" ];
 
 pub async fn options( headers: HeaderMap ) -> impl IntoResponse{
   let origin = headers.get("Origin").unwrap().to_str().unwrap();
@@ -40,7 +38,7 @@ pub fn cors( headers: &HeaderMap ) -> String{
   let origin = origin.unwrap().to_str().unwrap();
 
   if ALLOWED_ORIGINS.contains(&origin){
-    origin.to_owned() 
+    origin.to_owned()
   } else{
     "".into()
   }
