@@ -1,6 +1,6 @@
 use axum::{ http::{ header, HeaderMap, StatusCode }, response::IntoResponse };
 
-pub const ALLOWED_ORIGINS: [ &'static str; 3 ] = [ "https://id.phaz.uk", "https://id.phazed.xyz", "http://localhost:5173" ];
+pub const ALLOWED_ORIGINS: [ &'static str; 2 ] = [ "https://id.phazed.xyz", "http://localhost:5173" ];
 
 pub async fn options( headers: HeaderMap ) -> impl IntoResponse{
   let origin = headers.get("Origin").unwrap().to_str().unwrap();

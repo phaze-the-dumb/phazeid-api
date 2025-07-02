@@ -42,7 +42,7 @@ pub async fn post(
       [
         ( header::ACCESS_CONTROL_ALLOW_ORIGIN, cors(&headers) ),
         ( header::ACCESS_CONTROL_ALLOW_METHODS, "POST".into() ),
-        ( header::SET_COOKIE, format!("token={}; Max-Age=604800; Domain=id.api.phaz.uk; Path=/api; HttpOnly; Secure; SameSite=Strict", body.token) ),
+        ( header::SET_COOKIE, format!("token={}; Max-Age=604800; Domain=idapi-jye3bcyp.phazed.xyz; Path=/api; HttpOnly; Secure; SameSite=Strict", body.token) ),
         ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
       ],
       Json(json!({ "PROCEDURE": "NEXT" }))
