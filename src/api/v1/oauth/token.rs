@@ -7,7 +7,7 @@ use chrono::Utc;
 use rand::{ distributions::Alphanumeric, rngs::OsRng, Rng };
 use serde_json::json;
 
-use crate::{ apphandler::AppHandler, structs::{ apierror::APIError, oauthsession::OAuthSession }, util::cors::cors };
+use crate::{ apphandler::AppHandler, structs::{ apierror::APIError, oauthcode::OAuthCode, oauthsession::OAuthSession }, util::cors::cors };
 
 #[derive(serde::Deserialize, Debug)]
 pub struct OAuthApplicationRequestQuery{
@@ -22,7 +22,9 @@ pub async fn get(
   Query(query): Query<OAuthApplicationRequestQuery>,
   Extension(app): Extension<Arc<AppHandler>>
 ) -> impl IntoResponse{
-  if query.grant_type != "authorization_code" { return Err(APIError::new(400, "Invalid Grant Type.".into(), &headers)); }
+  if
+    query.grant_type != "authorization_code" &&
+    query.grant_type != "refresh_token" { return Err(APIError::new(400, "Invalid Grant Type.".into(), &headers)); }
 
   let oauth_app = app.oauth_apps.find_one(doc! { "_id": ObjectId::parse_str(&query.client_id).unwrap() }).await.unwrap();
   if oauth_app.is_none(){ return Err(APIError::new(500, "Invalid App".into(), &headers)) }
@@ -52,6 +54,12 @@ pub async fn get(
     return Err(APIError::new(500, "Invalid OAuth Code.".into(), &headers))
   }
 
+  if oauth_code.refresh{
+    if query.grant_type != "refresh_token" { return Err(APIError::new(400, "Invalid Grant Type.".into(), &headers)); }
+  } else{
+    if query.grant_type != "authorization_code" { return Err(APIError::new(400, "Invalid Grant Type.".into(), &headers)); }
+  }
+
   if
     query.redirect_uri != oauth_code.redirect_uri ||
     query.client_id != oauth_code.app.to_hex()
@@ -67,20 +75,43 @@ pub async fn get(
 
   let oauth_session = OAuthSession {
     _id: ObjectId::new(),
+
     token: argon2.hash_password(token.as_bytes(), &salt).unwrap().to_string(),
 
     created_on: now,
-    expires_on: now + 3_600,
+    expires_on: now + 2629800,
 
     app_id: oauth_app._id,
     app_name: oauth_app.name,
 
     user_id: oauth_code.user_id,
+    scopes: oauth_code.scopes.clone()
+  };
+
+  app.oauth_sessions.delete_many(doc! { "user_id": oauth_code.user_id, "app_id": oauth_app._id }).await.unwrap();
+  app.oauth_sessions.insert_one(&oauth_session).await.unwrap();
+
+  let refresh_token: String = rand::thread_rng().sample_iter(&Alphanumeric).take(64).map(char::from).collect();
+  let salt = SaltString::generate(&mut OsRng);
+
+  let ocode = OAuthCode {
+    _id: ObjectId::new(),
+    token: argon2.hash_password(refresh_token.as_bytes(), &salt).unwrap().to_string(),
+
+    app: oauth_app._id,
+    redirect_uri: query.redirect_uri,
+
+    created_on: now,
+    expires_on: now + 31557600,
+
+    refresh: true,
+
+    user_id: oauth_code.user_id,
     scopes: oauth_code.scopes
   };
 
-  app.oauth_sessions.insert_one(&oauth_session).await.unwrap();
-  app.oauth_codes.delete_one(doc! { "_id": oauth_code._id }).await.unwrap();
+  app.oauth_codes.delete_many(doc! { "user_id": oauth_code.user_id, "app": oauth_app._id }).await.unwrap();
+  app.oauth_codes.insert_one(&ocode).await.unwrap();
 
   Ok((
     StatusCode::OK,
@@ -92,8 +123,8 @@ pub async fn get(
     Json(json!({
       "access_token": format!("{}{}", oauth_session._id.to_hex(), token),
       "token_type": "Bearer",
-      "expires_in": 3600,
-      "refresh_token": None::<String>
+      "expires_in": 2629800,
+      "refresh_token": format!("{}{}", ocode._id.to_hex(), refresh_token)
     }))
   ))
 }

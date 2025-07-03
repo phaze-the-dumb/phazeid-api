@@ -91,12 +91,9 @@ pub async fn put(
   let salt = SaltString::generate(&mut OsRng);
 
   let now = Utc::now().timestamp();
-  let id = ObjectId::new();
-
-  let id_text = id.to_hex();
 
   let ocode = OAuthCode {
-    _id: id,
+    _id: ObjectId::new(),
     token: argon2.hash_password(token.as_bytes(), &salt).unwrap().to_string(),
 
     app: oauth_app._id,
@@ -105,11 +102,14 @@ pub async fn put(
     created_on: now,
     expires_on: now + 60, // Expires in 1 minute. (OAuth 2.0 spec says max 10 min)
 
+    refresh: false,
+
     user_id: user._id,
     scopes: scopes.map(|x| x.into()).collect()
   };
 
-  app.oauth_codes.insert_one(ocode).await.unwrap();
+  app.oauth_codes.delete_many(doc! { "user_id": user._id, "app": oauth_app._id }).await.unwrap();
+  app.oauth_codes.insert_one(&ocode).await.unwrap();
 
   if !user.allowed_apps.contains(&oauth_app._id){
     app.users.update_one(doc! { "_id": user._id }, doc! {
@@ -125,7 +125,7 @@ pub async fn put(
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
     Json(json!({
-      "code": format!("{}{}", id_text, token)
+      "code": format!("{}{}", ocode._id.to_hex(), token)
     }))
   ))
 }

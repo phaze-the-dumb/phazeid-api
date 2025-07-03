@@ -12,6 +12,8 @@ pub struct OAuthCode{
   pub created_on: i64,
   pub expires_on: i64,
 
+  pub refresh: bool,
+
   pub user_id: ObjectId,
   pub scopes: Vec<String>
 }
