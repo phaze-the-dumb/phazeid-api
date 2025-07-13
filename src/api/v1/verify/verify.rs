@@ -38,6 +38,6 @@ pub async fn post(
       ( header::SET_COOKIE, format!("token={}; Max-Age=604800; Domain=idapi-jye3bcyp.phazed.xyz; Path=/api; HttpOnly; Secure; SameSite=Strict", body.token) ),
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
-    Json(json!({ "PROCEDURE": "PROFILE", "endpoint": format!("/profile#{}", user._id.to_hex()) }))
+    Json(json!({ "PROCEDURE": "NEXT" }))
   ))
 }
