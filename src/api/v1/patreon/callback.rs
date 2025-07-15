@@ -10,7 +10,8 @@ use crate::{ apphandler::AppHandler, structs::{apierror::APIError, patreon::Patr
 
 #[derive(Deserialize)]
 pub struct PatreonCallbackRequestQuery{
-  pub code: String
+  pub code: String,
+  pub state: String
 }
 
 pub async fn get( 
@@ -100,7 +101,7 @@ pub async fn get(
       ( header::ACCESS_CONTROL_ALLOW_CREDENTIALS, "true".into() )
     ],
     Json(json!({
-      "endpoint": "/settings",
+      "endpoint": format!("/patreon{}", query.state),
       "patreon_linked": user.patreon_id.is_some(),
       "patreon_tiers": user.patreon_tiers
     }))
