@@ -117,6 +117,9 @@ async fn main() -> anyhow::Result<()> {
     .route("/api/v1/patreon/refresh", options(util::cors::options))
     .route("/api/v1/patreon/refresh", get(api::v1::patreon::refresh::get))
 
+    .route("/api/v1/patreon/remove", options(util::cors::options))
+    .route("/api/v1/patreon/remove", get(api::v1::patreon::remove::get))
+
     .fallback(handler_404)
     .layer(Extension(handler));
 
