@@ -38,7 +38,7 @@ pub async fn get(
   }
 
   let now = Utc::now().timestamp();
-  if user.patreon_id.is_some() { return Err(APIError::new(400, "Not linked".into(), &headers)) }
+  if !user.patreon_id.is_some() { return Err(APIError::new(400, "Not linked".into(), &headers)) }
 
   app.users.update_one(doc! { "_id": user._id }, doc! {
     "$set": {
