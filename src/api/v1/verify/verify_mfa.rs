@@ -29,7 +29,7 @@ pub async fn post(
   let account_secret = Secret::Raw(encrypt::decrypt_from_user(&user, account_secret).as_bytes().to_vec());
 
   let totp = TOTP::new(
-    Algorithm::SHA1, 
+    Algorithm::SHA1,
     6, 1, 30, 
     account_secret.to_bytes().unwrap(), 
     Some("Phaze ID".to_string()), 
